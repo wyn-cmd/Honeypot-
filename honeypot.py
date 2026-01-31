@@ -18,6 +18,7 @@ import threading
 import json
 import time
 import os
+import platform
 import paramiko
 
 from fake_filesystem import FAKE_FS, FILE_CONTENTS
@@ -28,6 +29,16 @@ from profiles import classify
 HOST = "0.0.0.0"
 PORT = 2222
 HOST_KEY_PATH = "ssh_host_rsa.key"
+
+OS_NAME = os.name                    
+SYSTEM = platform.system()     
+NODE = platform.node()                  # hostname
+RELEASE = platform.release()  
+VERSION = platform.version()
+MACHINE = platform.machine()  
+PROCESSOR = platform.processor()
+
+UNAME_A = f"{SYSTEM} {NODE} {RELEASE} {VERSION} {MACHINE}"
 
 def load_or_create_host_key(path):
     # Load an existing SSH host key if present.
@@ -113,7 +124,13 @@ def handle_connection(client, addr):
 
     # wait for shell request to be confirmed
     server.event.wait(10)
-    chan.send(b"Welcome to Ubuntu 18.04.5 LTS\n$ ")
+    banner = (
+    f"Welcome to {SYSTEM} {RELEASE} ({MACHINE})\n"
+    f"Last login: {time.ctime()} from {addr[0]}\n"
+    "$ "
+    )
+
+    chan.send(banner.encode())
 
     while True:
         try:
@@ -165,11 +182,13 @@ def emulate_command(cmd, server=None):
         return "root"
 
     if cmd == "id":
-        return "uid=0(root) gid=0(root) groups=0(root)"
+        return f"uid=0(root) gid=0(root) groups=0(root) context=system_u:system_r:unconfined_t:s0"
 
-    if cmd in ("uname -a", "uname"):
-        return "Linux 5.4.0-42-generic x86_64"
 
+    if parts[0] == "uname":
+        if "-a" in parts:
+            return UNAME_A
+        return SYSTEM
 
     # Directory handling
     if parts[0] == "pwd":
