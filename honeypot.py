@@ -18,6 +18,7 @@ import threading
 import json
 import time
 import os
+import random
 import platform
 import paramiko
 
@@ -29,6 +30,7 @@ from profiles import classify
 HOST = "0.0.0.0"
 PORT = 2222
 HOST_KEY_PATH = "ssh_host_rsa.key"
+
 
 OS_NAME = os.name                    
 SYSTEM = platform.system()     
@@ -94,6 +96,15 @@ class HoneypotSSH(paramiko.ServerInterface):
         return True
 
 
+def command_delay(cmd):
+    # Simulate human reaction + system processing time.
+    
+    base_delay = random.uniform(0.08, 0.15)   # thinking time
+    length_delay = min(len(cmd) * 0.0051, 0.15)  # longer commands will create longer delay
+    jitter = random.uniform(0.02, 0.1)
+
+    time.sleep(base_delay + length_delay + jitter)
+
 
 
 # Writes attacker activity as JSON (SIEM-friendly)
@@ -145,7 +156,10 @@ def handle_connection(client, addr):
             server.commands.append(cmd)
 
             # generate fake command output
+            command_delay(cmd) 
+
             response = emulate_command(cmd, server)
+
 
             # Send output back to attacker
             chan.send(response.encode() + b"\n$ ")
